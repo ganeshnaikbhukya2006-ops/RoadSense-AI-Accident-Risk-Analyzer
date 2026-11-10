@@ -1,3 +1,4 @@
+import os
 import streamlit as st
 import pandas as pd
 import numpy as np
@@ -31,9 +32,46 @@ div[data-testid="stMetric"] {background:#10233a;padding:14px;border:1px solid #2
 </style>
 """, unsafe_allow_html=True)
 
+
+def generate_demo_data(n=5000, seed=42):
+    """Create synthetic sample records when no external CSV dataset is provided."""
+    rng = np.random.default_rng(seed)
+    hour = rng.integers(0, 24, n)
+    day = rng.integers(0, 7, n)
+    weather = rng.choice(["Clear", "Rain", "Fog", "Storm"], n, p=[0.55, 0.25, 0.12, 0.08])
+    road = rng.choice(["Highway", "Urban", "Rural", "Intersection"], n, p=[0.28, 0.38, 0.18, 0.16])
+    traffic = rng.choice(["Low", "Medium", "High"], n, p=[0.25, 0.45, 0.30])
+    speed = rng.integers(20, 121, n)
+    lighting = np.where((hour >= 19) | (hour <= 5), "Dark", "Daylight")
+    visibility = np.select(
+        [weather == "Fog", weather == "Storm", weather == "Rain"],
+        [rng.integers(100, 500, n), rng.integers(300, 1200, n), rng.integers(500, 2500, n)],
+        default=rng.integers(2000, 10000, n)
+    )
+    risk = (
+        (speed > 80) * 1.0 + (weather == "Rain") * 0.7 +
+        (weather == "Fog") * 1.2 + (weather == "Storm") * 1.4 +
+        (road == "Highway") * 0.3 + (road == "Intersection") * 0.6 +
+        (traffic == "High") * 0.5 + (lighting == "Dark") * 0.6 +
+        (hour >= 22) * 0.4 + (visibility < 500) * 0.8 +
+        rng.normal(0, 0.55, n)
+    )
+    threshold = np.quantile(risk, 0.68)
+    labels = np.where(risk >= threshold, "High",
+                      np.where(risk >= threshold - 0.75, "Medium", "Low"))
+    return pd.DataFrame({
+        "hour": hour, "day_of_week": day, "weather": weather,
+        "road_type": road, "traffic_level": traffic, "speed_kmh": speed,
+        "lighting": lighting, "visibility_m": visibility, "risk_level": labels
+    })
+
 @st.cache_data
 def load_data():
-    return pd.read_csv("data/road_accident_demo.csv")
+    # Use a supplied CSV when available; otherwise create demo records automatically.
+    csv_path = "data/road_accident_demo.csv"
+    if os.path.exists(csv_path):
+        return pd.read_csv(csv_path)
+    return generate_demo_data()
 
 @st.cache_resource
 def train_model(data):
@@ -47,75 +85,12 @@ def train_model(data):
     model.fit(Xtr,ytr)
     return model, accuracy_score(yte,model.predict(Xte))
 
-data=load_data()
-model, accuracy=train_model(data)
 st.markdown("""<div class="hero"><div class="eyebrow">INTELLIGENT TRANSPORT • MACHINE LEARNING</div>
 <h1>🚦 RoadSense AI</h1><p>Intelligent Road Accident Risk Prediction & Decision Support</p></div>""",unsafe_allow_html=True)
 
-with st.sidebar:
-    st.markdown("## ⚙️ Risk scenario")
-    st.caption("Enter road and environment conditions")
-    hour_in=st.slider("Time of day",0,23,18,format="%d:00")
-    day_in=st.selectbox("Day of week",["Monday","Tuesday","Wednesday","Thursday","Friday","Saturday","Sunday"])
-    weather_in=st.selectbox("Weather",["Clear","Rain","Fog","Storm"])
-    road_in=st.selectbox("Road type",["Highway","Urban","Rural","Intersection"])
-    traffic_in=st.select_slider("Traffic density",["Low","Medium","High"],value="Medium")
-    speed_in=st.slider("Vehicle speed (km/h)",20,120,65)
-    light_in=st.selectbox("Lighting",["Daylight","Dark"],index=1 if hour_in>=19 or hour_in<=5 else 0)
-    visibility_in=st.slider("Visibility (metres)",100,10000,2500,step=100)
-    predict=st.button("PREDICT ACCIDENT RISK",use_container_width=True)
-
-st.markdown("### Live risk assessment")
-a,b,c=st.columns(3)
-a.metric("Model validation accuracy",f"{accuracy*100:.1f}%")
-b.metric("Training records",f"{len(data):,}")
-c.metric("Risk categories","3 levels")
-st.caption("Model trained on a generated demonstration dataset. Accuracy is a classroom-demo metric, not a real-world safety guarantee.")
-
-features=["hour","day_of_week","weather","road_type","traffic_level","speed_kmh","lighting","visibility_m"]
-day_num=["Monday","Tuesday","Wednesday","Thursday","Friday","Saturday","Sunday"].index(day_in)
-sample=pd.DataFrame([{"hour":hour_in,"day_of_week":day_num,"weather":weather_in,"road_type":road_in,"traffic_level":traffic_in,"speed_kmh":speed_in,"lighting":light_in,"visibility_m":visibility_in}])
-probs=model.predict_proba(sample)[0]
-classes=model.named_steps["rf"].classes_
-pred=classes[int(np.argmax(probs))]
-confidence=float(np.max(probs))*100
-colors={"Low":"#21c58e","Medium":"#f4b942","High":"#ff6577"}
-left,right=st.columns([1.05,1])
-with left:
-    st.markdown('<div class="panel">',unsafe_allow_html=True)
-    st.markdown("#### Predicted risk level")
-    st.markdown(f'<h1 style="color:{colors[pred]};font-size:42px;margin:0">{pred.upper()} RISK</h1>',unsafe_allow_html=True)
-    st.progress(int(confidence))
-    st.write(f"Model confidence: **{confidence:.1f}%**")
-    tips={"Low":"Continue following speed limits and normal defensive-driving practices.","Medium":"Reduce speed, increase following distance and stay alert for changing road conditions.","High":"Avoid unnecessary travel if possible. Reduce speed substantially and use a safer route or wait for conditions to improve."}
-    st.info("**Suggested action:** "+tips[pred])
-    st.markdown('</div>',unsafe_allow_html=True)
-with right:
-    st.markdown('<div class="panel">',unsafe_allow_html=True)
-    st.markdown("#### Class probability")
-    p=pd.DataFrame({"Risk level":classes,"Probability":probs})
-    fig=px.bar(p,x="Risk level",y="Probability",color="Risk level",color_discrete_map=colors, range_y=[0,1])
-    fig.update_layout(template="plotly_dark",paper_bgcolor="rgba(0,0,0,0)",plot_bgcolor="rgba(0,0,0,0)",height=270,margin=dict(l=5,r=5,t=10,b=5),showlegend=False)
-    st.plotly_chart(fig,use_container_width=True)
-    st.markdown('</div>',unsafe_allow_html=True)
-
-st.markdown("### Dataset intelligence")
-x,y=st.columns(2)
-with x:
-    counts=data["risk_level"].value_counts().rename_axis("Risk level").reset_index(name="Records")
-    fig=px.pie(counts,names="Risk level",values="Records",hole=.58,color="Risk level",color_discrete_map=colors)
-    fig.update_layout(template="plotly_dark",paper_bgcolor="rgba(0,0,0,0)",height=310,margin=dict(t=15,b=5))
-    st.plotly_chart(fig,use_container_width=True)
-with y:
-    fig=px.histogram(data,x="speed_kmh",color="risk_level",nbins=24,barmode="overlay",opacity=.78,color_discrete_map=colors)
-    fig.update_layout(template="plotly_dark",paper_bgcolor="rgba(0,0,0,0)",plot_bgcolor="rgba(0,0,0,0)",height=310,margin=dict(t=15,b=5),legend_title_text="Risk")
-    st.plotly_chart(fig,use_container_width=True)
-
-with st.expander("🔎 Explore sample records"):
-    st.dataframe(data.sample(min(12,len(data)),random_state=4),use_container_width=True,hide_index=True)
-with st.expander("🧠 About the machine-learning model"):
-    st.write("A K-Nearest Neighbors (KNN) classifier compares a new road scenario with the five most similar training records. Categorical inputs are one-hot encoded and numerical inputs are scaled in a preprocessing pipeline. Distance-weighted voting gives closer records more influence.")
-    st.write("The data included in this project is synthetically generated for academic demonstration. Replace it with a properly licensed, verified accident dataset and retrain before making any operational decisions.")
-
-st.markdown("---")
-st.markdown('<p class="small-note">RoadSense AI • Academic project prototype • Not an emergency service or a substitute for official road-safety systems.</p>',unsafe_allow_html=True)
+st.markdown("### 📁 Upload your accident-risk dataset")
+st.caption("Upload a CSV with the required columns below. If you do not have a dataset yet, the app uses generated demo data.")
+template = generate_demo_data(30)
+st.download_button(
+    "⬇️ Download sample CSV template",
+    data=template.to_csv(index=False).encode("utf-8"),
