@@ -91,6 +91,5 @@ st.markdown("""<div class="hero"><div class="eyebrow">INTELLIGENT TRANSPORT • 
 st.markdown("### 📁 Upload your accident-risk dataset")
 st.caption("Upload a CSV with the required columns below. If you do not have a dataset yet, the app uses generated demo data.")
 template = generate_demo_data(30)
-st.download_button(
-    "⬇️ Download sample CSV template",
-    data=template.to_csv(index=False).encode("utf-8"),
+st.download_button("⬇️ Download sample CSV template", template.to_csv(index=False).encode("utf-8"), "road_accident_dataset_template.csv", "text/csv")
+uploaded_file = st.file_uploader("Choose a CSV file", type=["csv"], help="Required columns: hour, day_of_week, weather, road_type, traffic_level, speed_kmh, lighting, visibility_m, risk_level")
