@@ -1,4 +1,4 @@
-import os
+
 import streamlit as st
 import pandas as pd
 import numpy as np
@@ -11,27 +11,30 @@ from sklearn.neighbors import KNeighborsClassifier
 from sklearn.model_selection import train_test_split
 from sklearn.metrics import accuracy_score
 
-# ---------------- PAGE CONFIGURATION ----------------
+# =====================================================
+# 1. PAGE CONFIGURATION
+# =====================================================
 
 st.set_page_config(
     page_title="RoadSense AI",
     page_icon="🚦",
-    layout="wide"
+    layout="wide",
+    initial_sidebar_state="expanded"
 )
 
-# ---------------- CUSTOM DESIGN ----------------
+# =====================================================
+# 2. CUSTOM CSS DESIGN
+# =====================================================
 
 st.markdown("""
 <style>
+
 @import url('https://fonts.googleapis.com/css2?family=DM+Sans:wght@400;500;600;700&family=Space+Grotesk:wght@500;600;700&display=swap');
 
-html, body, [class*="css"] {
-    font-family: 'DM Sans', sans-serif;
-}
-
 .stApp {
-    background: linear-gradient(135deg,#07111f,#0b1930,#101d35);
+    background: linear-gradient(135deg, #07111f, #0b1930, #101d35);
     color: #edf4ff;
+    font-family: 'DM Sans', sans-serif;
 }
 
 section[data-testid="stSidebar"] {
@@ -45,11 +48,11 @@ h1, h2, h3 {
 }
 
 .hero {
-    padding: 26px 30px;
+    padding: 28px;
     border: 1px solid #24415f;
-    border-radius: 22px;
-    background: linear-gradient(110deg,#102943,#102039,#142c45);
-    margin-bottom: 22px;
+    border-radius: 20px;
+    background: linear-gradient(110deg, #102943, #102039, #142c45);
+    margin-bottom: 25px;
 }
 
 .eyebrow {
@@ -63,34 +66,37 @@ h1, h2, h3 {
     background: #0e2035;
     border: 1px solid #203b58;
     border-radius: 18px;
-    padding: 18px 20px;
+    padding: 20px;
 }
 
 div[data-testid="stMetric"] {
     background: #10233a;
-    padding: 14px;
+    padding: 15px;
     border: 1px solid #23415f;
     border-radius: 14px;
 }
 
-.stButton>button {
-    background: linear-gradient(90deg,#13b8b0,#2589dc);
+.stButton > button {
+    background: linear-gradient(90deg, #13b8b0, #2589dc);
     color: white;
-    border: 0;
+    border: none;
     border-radius: 10px;
     font-weight: 700;
-    padding: 10px 18px;
+    min-height: 45px;
 }
 
 .small-note {
     color: #91a8c2;
     font-size: 12px;
 }
+
 </style>
 """, unsafe_allow_html=True)
 
 
-# ---------------- DEMO DATA GENERATOR ----------------
+# =====================================================
+# 3. DEMO DATA GENERATOR
+# =====================================================
 
 def generate_demo_data(n=5000, seed=42):
 
@@ -107,12 +113,14 @@ def generate_demo_data(n=5000, seed=42):
 
     road = rng.choice(
         ["Highway", "Urban", "Rural", "Intersection"],
-        n
+        n,
+        p=[0.28, 0.38, 0.18, 0.16]
     )
 
     traffic = rng.choice(
         ["Low", "Medium", "High"],
-        n
+        n,
+        p=[0.25, 0.45, 0.30]
     )
 
     speed = rng.integers(20, 121, n)
@@ -138,17 +146,17 @@ def generate_demo_data(n=5000, seed=42):
     )
 
     risk = (
-        (speed > 80) * 1.0 +
-        (weather == "Rain") * 0.7 +
-        (weather == "Fog") * 1.2 +
-        (weather == "Storm") * 1.4 +
-        (road == "Highway") * 0.3 +
-        (road == "Intersection") * 0.6 +
-        (traffic == "High") * 0.5 +
-        (lighting == "Dark") * 0.6 +
-        (hour >= 22) * 0.4 +
-        (visibility < 500) * 0.8 +
-        rng.normal(0, 0.55, n)
+        (speed > 80) * 1.0
+        + (weather == "Rain") * 0.7
+        + (weather == "Fog") * 1.2
+        + (weather == "Storm") * 1.4
+        + (road == "Highway") * 0.3
+        + (road == "Intersection") * 0.6
+        + (traffic == "High") * 0.5
+        + (lighting == "Dark") * 0.6
+        + (hour >= 22) * 0.4
+        + (visibility < 500) * 0.8
+        + rng.normal(0, 0.55, n)
     )
 
     threshold = np.quantile(risk, 0.68)
@@ -176,19 +184,9 @@ def generate_demo_data(n=5000, seed=42):
     })
 
 
-# ---------------- DATA LOADING ----------------
-
-def load_data():
-
-    csv_path = "data/road_accident_demo.csv"
-
-    if os.path.exists(csv_path):
-        return pd.read_csv(csv_path)
-
-    return generate_demo_data()
-
-
-# ---------------- MACHINE LEARNING MODEL ----------------
+# =====================================================
+# 4. MACHINE LEARNING MODEL - KNN
+# =====================================================
 
 def train_model(data):
 
@@ -203,9 +201,6 @@ def train_model(data):
         "visibility_m"
     ]
 
-    X = data[features]
-    y = data["risk_level"]
-
     categorical = [
         "weather",
         "road_type",
@@ -214,8 +209,12 @@ def train_model(data):
     ]
 
     numerical = [
-        c for c in features if c not in categorical
+        col for col in features
+        if col not in categorical
     ]
+
+    X = data[features]
+    y = data["risk_level"]
 
     preprocessing = ColumnTransformer([
         (
@@ -260,43 +259,45 @@ def train_model(data):
     return model, accuracy
 
 
-# ---------------- HEADER ----------------
+# =====================================================
+# 5. DASHBOARD HEADER
+# =====================================================
 
-st.markdown("""
-<div class="hero">
-    <div class="eyebrow">
-        INTELLIGENT TRANSPORT • MACHINE LEARNING
-    </div>
+st.markdown(
+    '<div class="eyebrow">INTELLIGENT TRANSPORT • MACHINE LEARNING</div>',
+    unsafe_allow_html=True
+)
 
-    <h1>🚦 RoadSense AI</h1>
+st.title("🚦 RoadSense AI")
 
-    <p>
-        Intelligent Road Accident Risk Prediction
-        & Decision Support
-    </p>
-</div>
-""", unsafe_allow_html=True)
+st.subheader(
+    "Intelligent Road Accident Risk Prediction & Decision Support"
+)
+
+st.markdown("---")
 
 
-# ---------------- CSV UPLOAD ----------------
+# =====================================================
+# 6. CSV DATASET UPLOAD
+# =====================================================
 
-st.markdown("### 📁 Upload your accident-risk dataset")
+st.markdown("### 📁 Upload Your Accident-Risk Dataset")
 
 st.caption(
-    "Upload your own CSV dataset to train the KNN model."
+    "Upload your CSV dataset to train the KNN model."
 )
 
 template = generate_demo_data(30)
 
 st.download_button(
-    "⬇️ Download sample CSV template",
-    template.to_csv(index=False).encode("utf-8"),
-    "road_accident_dataset_template.csv",
-    "text/csv"
+    label="⬇️ Download Sample CSV Template",
+    data=template.to_csv(index=False).encode("utf-8"),
+    file_name="road_accident_dataset_template.csv",
+    mime="text/csv"
 )
 
 uploaded_file = st.file_uploader(
-    "Choose a CSV file",
+    "Choose your CSV file",
     type=["csv"]
 )
 
@@ -318,35 +319,19 @@ if uploaded_file is not None:
 
         data = pd.read_csv(uploaded_file)
 
-        missing = [
+        missing_columns = [
             col for col in required_columns
             if col not in data.columns
         ]
 
-        if missing:
+        if missing_columns:
             st.error(
-                "Missing columns: " + ", ".join(missing)
+                "Missing columns: "
+                + ", ".join(missing_columns)
             )
             st.stop()
 
-        data = data[required_columns].dropna().copy()
-
-        data["risk_level"] = (
-            data["risk_level"]
-            .astype(str)
-            .str.strip()
-            .str.title()
-        )
-
-        invalid = set(data["risk_level"]) - {
-            "Low", "Medium", "High"
-        }
-
-        if invalid:
-            st.error(
-                "Risk labels must be Low, Medium or High."
-            )
-            st.stop()
+        data = data[required_columns].copy()
 
         numeric_columns = [
             "hour",
@@ -361,67 +346,116 @@ if uploaded_file is not None:
                 errors="coerce"
             )
 
+        data["risk_level"] = (
+            data["risk_level"]
+            .astype(str)
+            .str.strip()
+            .str.title()
+        )
+
         data = data.dropna()
 
         if len(data) < 15:
-            st.error("Upload at least 15 valid records.")
+            st.error(
+                "Please upload at least 15 valid records."
+            )
             st.stop()
 
         if data["risk_level"].nunique() != 3:
             st.error(
-                "Dataset must contain Low, Medium and High classes."
+                "Dataset must contain Low, Medium and High risk classes."
             )
             st.stop()
 
         if data["risk_level"].value_counts().min() < 2:
             st.error(
-                "Each risk category needs at least 2 records."
+                "Each risk category must contain at least 2 records."
             )
+            st.stop()
+
+        if not data["hour"].between(0, 23).all():
+            st.error("Hour must be between 0 and 23.")
+            st.stop()
+
+        if not data["day_of_week"].between(0, 6).all():
+            st.error("Day of week must be between 0 and 6.")
+            st.stop()
+
+        if not data["speed_kmh"].between(0, 300).all():
+            st.error("Please check the vehicle speed values.")
+            st.stop()
+
+        if not data["visibility_m"].between(0, 100000).all():
+            st.error("Please check the visibility values.")
             st.stop()
 
         st.success(
             f"Successfully uploaded {len(data):,} records!"
         )
 
-    except Exception as e:
+    except Exception as error:
 
-        st.error(f"CSV processing error: {e}")
+        st.error(f"Dataset error: {error}")
         st.stop()
 
 else:
 
-    data = load_data()
+    data = generate_demo_data()
 
     st.info(
-        "Using generated demonstration data. "
+        "Using automatically generated demonstration data. "
         "Upload your own CSV to train on your dataset."
     )
 
 
-# ---------------- TRAIN MODEL ----------------
+# =====================================================
+# 7. MODEL TRAINING
+# =====================================================
 
-model, accuracy = train_model(data)
+try:
+
+    with st.spinner("Training KNN Machine Learning model..."):
+
+        model, accuracy = train_model(data)
+
+    st.success("KNN model trained successfully!")
+
+except Exception as error:
+
+    st.error(f"Model training failed: {error}")
+    st.stop()
 
 
-# ---------------- SIDEBAR INPUTS ----------------
+# =====================================================
+# 8. SIDEBAR INPUTS
+# =====================================================
 
 with st.sidebar:
 
     st.markdown("## ⚙️ Risk Scenario")
 
-    st.caption("Enter road and environmental conditions.")
+    st.caption(
+        "Enter road and environmental conditions."
+    )
 
     hour_in = st.slider(
-        "Time of day",
+        "Time of Day",
         0, 23, 18
     )
 
+    days = [
+        "Monday",
+        "Tuesday",
+        "Wednesday",
+        "Thursday",
+        "Friday",
+        "Saturday",
+        "Sunday"
+    ]
+
     day_in = st.selectbox(
-        "Day of week",
-        [
-            "Monday", "Tuesday", "Wednesday",
-            "Thursday", "Friday", "Saturday", "Sunday"
-        ]
+        "Day of Week",
+        days
     )
 
     weather_in = st.selectbox(
@@ -430,19 +464,19 @@ with st.sidebar:
     )
 
     road_in = st.selectbox(
-        "Road type",
+        "Road Type",
         ["Highway", "Urban", "Rural", "Intersection"]
     )
 
     traffic_in = st.select_slider(
-        "Traffic density",
+        "Traffic Density",
         ["Low", "Medium", "High"],
         value="Medium"
     )
 
     speed_in = st.slider(
-        "Vehicle speed (km/h)",
-        20, 120, 65
+        "Vehicle Speed (km/h)",
+        0, 200, 65
     )
 
     light_in = st.selectbox(
@@ -452,7 +486,8 @@ with st.sidebar:
 
     visibility_in = st.slider(
         "Visibility (metres)",
-        100, 10000, 2500, step=100
+        100, 10000, 2500,
+        step=100
     )
 
     predict = st.button(
@@ -461,53 +496,46 @@ with st.sidebar:
     )
 
 
-# ---------------- PREDICTION ----------------
+# =====================================================
+# 9. MODEL PERFORMANCE
+# =====================================================
 
-st.markdown("### Live Risk Assessment")
+st.markdown("### 📊 Model Performance")
 
-a, b, c = st.columns(3)
+col1, col2, col3 = st.columns(3)
 
-a.metric(
-    "Model Validation Accuracy",
-    f"{accuracy * 100:.1f}%"
+col1.metric(
+    "Validation Accuracy",
+    f"{accuracy * 100:.2f}%"
 )
 
-b.metric(
-    "Training Records",
-    f"{len(data):,}"
+col2.metric(
+    "Training Dataset",
+    f"{len(data):,} Records"
 )
 
-c.metric(
-    "Risk Categories",
-    "3 Levels"
+col3.metric(
+    "Algorithm",
+    "KNN (K=5)"
 )
 
 st.caption(
-    "Results are based on the selected dataset. "
-    "Synthetic demo results are not real-world safety guarantees."
+    "Accuracy is measured on a held-out test split. "
+    "Synthetic dataset performance is illustrative only."
 )
 
-features = [
-    "hour",
-    "day_of_week",
-    "weather",
-    "road_type",
-    "traffic_level",
-    "speed_kmh",
-    "lighting",
-    "visibility_m"
-]
 
-days = [
-    "Monday", "Tuesday", "Wednesday",
-    "Thursday", "Friday", "Saturday", "Sunday"
-]
+# =====================================================
+# 10. ACCIDENT RISK PREDICTION
+# =====================================================
 
-day_num = days.index(day_in)
+st.markdown("### 🔍 Live Accident Risk Prediction")
+
+day_number = days.index(day_in)
 
 sample = pd.DataFrame([{
     "hour": hour_in,
-    "day_of_week": day_num,
+    "day_of_week": day_number,
     "weather": weather_in,
     "road_type": road_in,
     "traffic_level": traffic_in,
@@ -516,7 +544,6 @@ sample = pd.DataFrame([{
     "visibility_m": visibility_in
 }])
 
-# Predict when button is clicked
 if predict:
 
     probabilities = model.predict_proba(sample)[0]
@@ -533,7 +560,7 @@ if predict:
         "High": "#ff6577"
     }
 
-    left, right = st.columns([1.05, 1])
+    left, right = st.columns(2)
 
     with left:
 
@@ -545,8 +572,7 @@ if predict:
         st.markdown("#### Predicted Risk Level")
 
         st.markdown(
-            f'<h1 style="color:{colors[predicted]};'
-            f'font-size:42px;margin:0">'
+            f'<h1 style="color:{colors[predicted]}">'
             f'{predicted.upper()} RISK</h1>',
             unsafe_allow_html=True
         )
@@ -554,20 +580,33 @@ if predict:
         st.progress(int(confidence))
 
         st.write(
-            f"Model confidence: **{confidence:.1f}%**"
+            f"Prediction confidence: **{confidence:.2f}%**"
         )
 
-        tips = {
-            "Low": "Continue following speed limits and normal defensive-driving practices.",
-            "Medium": "Reduce speed and increase following distance.",
-            "High": "Avoid unnecessary travel if possible and wait for safer conditions."
+        recommendations = {
+            "Low": (
+                "Continue following traffic rules and maintain "
+                "safe driving practices."
+            ),
+            "Medium": (
+                "Reduce speed, increase following distance "
+                "and stay alert."
+            ),
+            "High": (
+                "Avoid unnecessary travel if possible. "
+                "Wait for safer road conditions."
+            )
         }
 
         st.info(
-            "**Suggested action:** " + tips[predicted]
+            "**Safety Recommendation:** "
+            + recommendations[predicted]
         )
 
-        st.markdown("</div>", unsafe_allow_html=True)
+        st.markdown(
+            "</div>",
+            unsafe_allow_html=True
+        )
 
     with right:
 
@@ -576,18 +615,18 @@ if predict:
             unsafe_allow_html=True
         )
 
-        st.markdown("#### Class Probability")
+        st.markdown("#### Risk Probability")
 
         probability_data = pd.DataFrame({
-            "Risk level": classes,
+            "Risk Level": classes,
             "Probability": probabilities
         })
 
         fig = px.bar(
             probability_data,
-            x="Risk level",
+            x="Risk Level",
             y="Probability",
-            color="Risk level",
+            color="Risk Level",
             color_discrete_map=colors,
             range_y=[0, 1]
         )
@@ -596,7 +635,7 @@ if predict:
             template="plotly_dark",
             paper_bgcolor="rgba(0,0,0,0)",
             plot_bgcolor="rgba(0,0,0,0)",
-            height=270,
+            height=300,
             showlegend=False
         )
 
@@ -605,50 +644,55 @@ if predict:
             use_container_width=True
         )
 
-        st.markdown("</div>", unsafe_allow_html=True)
+        st.markdown(
+            "</div>",
+            unsafe_allow_html=True
+        )
 
 else:
 
     st.info(
-        "👈 Select road conditions in the sidebar "
-        "and click PREDICT ACCIDENT RISK to see the result."
+        "Select road conditions in the sidebar and click "
+        "'PREDICT ACCIDENT RISK' to view the prediction."
     )
 
 
-# ---------------- DATASET ANALYTICS ----------------
+# =====================================================
+# 11. DATASET ANALYTICS
+# =====================================================
 
-st.markdown("### 📊 Dataset Intelligence")
+st.markdown("### 📈 Dataset Intelligence")
 
-x, y = st.columns(2)
+left, right = st.columns(2)
 
-colors = {
+risk_colors = {
     "Low": "#21c58e",
     "Medium": "#f4b942",
     "High": "#ff6577"
 }
 
-with x:
+with left:
 
     counts = (
         data["risk_level"]
         .value_counts()
-        .rename_axis("Risk level")
+        .rename_axis("Risk Level")
         .reset_index(name="Records")
     )
 
     fig = px.pie(
         counts,
-        names="Risk level",
+        names="Risk Level",
         values="Records",
         hole=0.58,
-        color="Risk level",
-        color_discrete_map=colors
+        color="Risk Level",
+        color_discrete_map=risk_colors
     )
 
     fig.update_layout(
         template="plotly_dark",
         paper_bgcolor="rgba(0,0,0,0)",
-        height=310
+        height=320
     )
 
     st.plotly_chart(
@@ -656,23 +700,23 @@ with x:
         use_container_width=True
     )
 
-with y:
+with right:
 
     fig = px.histogram(
         data,
         x="speed_kmh",
         color="risk_level",
-        nbins=24,
+        nbins=25,
         barmode="overlay",
-        opacity=0.78,
-        color_discrete_map=colors
+        opacity=0.8,
+        color_discrete_map=risk_colors
     )
 
     fig.update_layout(
         template="plotly_dark",
         paper_bgcolor="rgba(0,0,0,0)",
         plot_bgcolor="rgba(0,0,0,0)",
-        height=310
+        height=320
     )
 
     st.plotly_chart(
@@ -681,52 +725,61 @@ with y:
     )
 
 
-# ---------------- SAMPLE RECORDS ----------------
+# =====================================================
+# 12. DATASET PREVIEW
+# =====================================================
 
-with st.expander("🔎 Explore Sample Records"):
+with st.expander("🔎 Explore Dataset Records"):
 
     st.dataframe(
-        data.sample(
-            min(12, len(data)),
-            random_state=4
-        ),
+        data.head(20),
         use_container_width=True,
         hide_index=True
     )
 
 
-# ---------------- ABOUT MODEL ----------------
+# =====================================================
+# 13. ABOUT THE MODEL
+# =====================================================
 
-with st.expander("🧠 About the Machine Learning Model"):
+with st.expander("🧠 About KNN Algorithm"):
 
     st.write("""
-    The application uses the K-Nearest Neighbors (KNN)
-    classification algorithm.
+    K-Nearest Neighbors is a supervised Machine Learning
+    algorithm used for classification.
 
-    KNN compares a new road scenario with the five
-    closest training records and predicts the risk
-    category using distance-weighted voting.
+    This project uses K=5 and distance-weighted voting.
 
-    Numerical features are standardized, and
+    It identifies the five nearest training records
+    based on their features and predicts the accident
+    risk category.
+
+    Numerical features are standardized, while
     categorical features are one-hot encoded.
     """)
 
     st.write("""
-    The built-in dataset is synthetically generated
-    for academic demonstration. Replace it with
-    verified accident records for research use.
+    The built-in demonstration dataset is synthetic.
+    Use verified real-world accident records for
+    research and further model evaluation.
     """)
 
 
-# ---------------- FOOTER ----------------
+# =====================================================
+# 14. FOOTER
+# =====================================================
 
 st.markdown("---")
 
 st.markdown(
     '<p class="small-note">'
-    'RoadSense AI • Academic Project Prototype • '
-    'Not an emergency service or a substitute '
-    'for official road-safety systems.'
+    'RoadSense AI | Intelligent Road Accident Prediction '
+    '| Academic Project Prototype'
     '</p>',
     unsafe_allow_html=True
+)
+
+st.caption(
+    "This application is for academic demonstration "
+    "and road-safety awareness, not actual accident forecasting."
 )
